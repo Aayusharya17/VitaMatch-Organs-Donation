@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import signupImage from "../assets/Signupa.png"
+import signupImage from "../assets/Signup.png"
 const api = axios.create({
   baseURL: "http://localhost:5000/api/v1",
 });
