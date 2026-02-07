@@ -146,30 +146,6 @@ const getDoctorAllocations = async (req, res) => {
   }
 };
 
-const dispatchOrgan = async (req, res) => {
-  try {
-    const { allocationId } = req.body;
-
-    const result =
-      await doctorServ.dispatchOrgan(
-        allocationId,
-        req.user.id
-      );
-
-    res.json({
-      success: true,
-      message: "Organ dispatched",
-      data: result
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
 const completeAllocation = async (req, res) => {
   try {
     const { allocationId } = req.body;
@@ -226,6 +202,5 @@ module.exports = {
   doctorDashboard,
   getDoctorAllocations,
   failAllocation,
-  completeAllocation,
-  dispatchOrgan
+  completeAllocation
 };

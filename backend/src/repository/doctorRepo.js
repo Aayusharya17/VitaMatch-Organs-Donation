@@ -70,7 +70,7 @@ class DoctorRepository {
 
     if (statusFilter === "ALL_ACTIVE") {
       statusQuery.status = {
-        $in: ["PENDING_CONFIRMATION", "MATCHED", "DISPATCHED"]
+        $in: ["PENDING_CONFIRMATION", "MATCHED"]
       };
     } else if (statusFilter && statusFilter !== "ALL") {
       statusQuery.status = statusFilter;
@@ -105,8 +105,7 @@ class DoctorRepository {
         status: {
           $in: [
             "PENDING_CONFIRMATION",
-            "MATCHED",
-            "DISPATCHED"
+            "MATCHED"
           ]
         }
       });

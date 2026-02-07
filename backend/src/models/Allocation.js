@@ -22,7 +22,6 @@ const allocationSchema = new mongoose.Schema({
     enum: [
       "PENDING_CONFIRMATION",
       "MATCHED",
-      "DISPATCHED",
       "COMPLETED",
       "FAILED"
     ],
