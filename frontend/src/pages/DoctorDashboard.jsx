@@ -283,6 +283,9 @@ const DoctorDashboard = () => {
                   >
                     <h3 className="text-xl font-semibold">{o.organName}</h3>
                     <p className="text-slate-500">{o.bloodGroup}</p>
+                    <p className="text-slate-500">{o.distance}</p>
+                    <p className="text-slate-500">{o.duration}</p>
+                    <p className="text-slate-500">{o.riskLevel} RISK</p>
                     <button
                       onClick={() => acceptOrgan(o._id, o.requestId)}
                       className="bg-emerald-500 hover:bg-emerald-600
