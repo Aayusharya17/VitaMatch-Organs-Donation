@@ -56,8 +56,9 @@ const DoctorDashboard = () => {
 
   const fetchAllocations = async () => {
     try {
-      const res = await api.get("/doctor/allocations", authHeader);
+      const res = await api.get(`/doctor/allocations?status=ALL_ACTIVE`, authHeader);
       setAllocations(res.data.data);
+      console.log(res)
     } catch (err) {
       console.log(err);
     }
@@ -106,6 +107,35 @@ const DoctorDashboard = () => {
     }
   };
 
+  const completeAllocation = async (allocationId) => {
+  try {
+    await api.post(
+      "/doctor/complete-allocation",
+      { allocationId },
+      authHeader
+    );
+    fetchAllocations();
+    alert("Allocation completed");
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+const failAllocation = async (allocationId) => {
+  try {
+    await api.post(
+      "/doctor/fail-allocation",
+      { allocationId },
+      authHeader
+    );
+    fetchAllocations();
+    alert("Allocation failed");
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+
   /* ================= HELPERS ================= */
 
   const getStatusColor = (status) => {
@@ -151,6 +181,7 @@ const DoctorDashboard = () => {
               { id: "dashboard", label: "Dashboard", icon: "📊" },
               { id: "available", label: "Available Organs", icon: "🫀" },
               { id: "request", label: "Request Organ", icon: "➕" },
+              { id: "allocations", label: "My Allocations", icon: "📦" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -435,6 +466,65 @@ const DoctorDashboard = () => {
               )}
             </motion.div>
           )}
+          {/* MY ALLOCATIONS TAB */}
+{activeTab === "allocations" && (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.3 }}
+  >
+    <h2 className="text-3xl font-bold mb-6">My Allocations</h2>
+
+    {allocations.length === 0 ? (
+      <div className="text-center py-20 bg-white rounded-2xl shadow">
+        <div className="text-6xl mb-4">📦</div>
+        <p className="text-gray-400 text-xl">No allocations yet</p>
+      </div>
+    ) : (
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {allocations.map((a) => (
+          <div
+            key={a._id}
+            className="bg-white rounded-2xl p-6 shadow-lg border"
+          >
+            <h3 className="text-xl font-bold mb-2">{a.organName}</h3>
+
+            <p className="text-sm text-gray-600 mb-1">
+              Blood Group: <b>{a.bloodGroup}</b>
+            </p>
+
+            <span
+              className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(
+                a.status
+              )}`}
+            >
+              {a.status}
+            </span>
+
+            {/* ACTIONS ONLY IF MATCHED */}
+            {a.status === "MATCHED" && (
+              <div className="flex gap-3 mt-5">
+                <button
+                  onClick={() => completeAllocation(a._id)}
+                  className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
+                >
+                  ✅ Complete
+                </button>
+
+                <button
+                  onClick={() => failAllocation(a._id)}
+                  className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+                >
+                  ❌ Fail
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </motion.div>
+)}
 
           {/* REQUEST ORGAN TAB */}
           {activeTab === "request" && (
@@ -478,14 +568,14 @@ const DoctorDashboard = () => {
                       onChange={(e) => setBloodGroup(e.target.value)}
                     >
                       <option value="">Select Blood Group</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
+                      <option value="A_POS">A+</option>
+                      <option value="A_NEG">A-</option>
+                      <option value="B_POS">B+</option>
+                      <option value="B_NEG">B-</option>
+                      <option value="O_POS">O+</option>
+                      <option value="O_NEG">O-</option>
+                      <option value="AB_POS">AB+</option>
+                      <option value="AB_NEG">AB-</option>
                     </select>
                   </div>
 

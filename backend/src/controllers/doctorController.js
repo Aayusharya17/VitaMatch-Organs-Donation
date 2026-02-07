@@ -131,7 +131,7 @@ const getDoctorAllocations = async (req, res) => {
 
     const data =
       await doctorServ.getDoctorAllocations(doctorId, status);
-
+    console.log(data);
     return res.status(200).json({
       success: true,
       message: "Doctor allocations fetched",
