@@ -50,7 +50,7 @@ export default function Signup() {
       <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 overflow-hidden">
 
         {/* LEFT */}
-        <div className="p-10 flex flex-col justify-center">
+        <div className="p-12 flex flex-col justify-center">
 
           <h2 className="text-3xl font-bold mb-2">Create an account</h2>
 
@@ -161,6 +161,15 @@ export default function Signup() {
   </form>
 )}
 
+    <p className="text-sm text-gray-600 mt-6">
+          Already have an account ?{" "}
+          <span
+            onClick={() => navigate("/login")}
+            className="text-indigo-600 font-medium cursor-pointer hover:underline"
+          >
+            Login
+          </span>
+        </p>
 
           {/* PROGRESS */}
           <div className="flex gap-2 mt-8">
