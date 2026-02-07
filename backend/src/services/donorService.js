@@ -52,30 +52,31 @@ class DonorService {
     }
   }
 
-    async confirmAllocation(organId) {
-      const organ = await DonatedOrgan.findById(organId);
-      console.log(organ,organId)
-      const allocation = await Allocation.findById(organ.allocationId);
-    console.log(allocation)
-    // const request = await RequestedOrgan.findById(allocation.requestId);
+  async confirmAllocation(organId) {
+    const organ = await DonatedOrgan.findById(organId);
+    if (!organ) throw new Error("Organ not found");
+
+    const allocation = await Allocation.findById(organ.allocationId);
+    if (!allocation) throw new Error("Allocation not found");
+
+    const request = await RequestedOrgan.findById(allocation.requestId);
 
     allocation.status = "MATCHED";
     organ.status = "ALLOCATED";
-    // request.status = "MATCHED";
 
-    await allocation.save();
     await organ.save();
-    // await request.save();
 
-    const hash =
-      this.blockchainService.generateHash({
-        allocationId: allocation._id,
-        status: "MATCHED",
-        previousHash: allocation.lastBlockchainHash,
-        timestamp: Date.now()
-      });
+    const timestamp = Date.now();
 
-    const txHash = await this.blockchainService.storeHash(hash);
+    const hash = this.blockchainService.generateHash({
+      allocationId: allocation._id.toString(),
+      status: "MATCHED",
+      previousHash: allocation.lastBlockchainHash,
+      timestamp
+    });
+
+    const txHash =
+      await this.blockchainService.storeHash(hash);
 
     allocation.lastBlockchainHash = hash;
 
@@ -83,18 +84,17 @@ class DonorService {
       status: "MATCHED",
       hash,
       txHash,
-      timestamp
+      timestamp: new Date(timestamp)
     });
 
     await allocation.save();
-
-    await Notification.create({
-      userId: request.createdByDoctorId,
-      message:
-        "Donor has CONFIRMED the organ transplant request.",
-      allocationId: allocation._id
-    });
-
+    if (request) {
+      await Notification.create({
+        userId: request.doctorId,
+        message: "Donor confirmed transplant request.",
+        allocationId: allocation._id
+      });
+    }
     return allocation;
   }
 
