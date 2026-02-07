@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
+import signupImage from "../assets/Signup.png"
 const api = axios.create({
   baseURL: "http://localhost:5000/api/v1",
 });
 
-const Signup = () => {
+export default function Signup() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1); 
 
   const [formData, setFormData] = useState({
     role: "DONOR",
@@ -22,32 +23,20 @@ const Signup = () => {
     city: "",
   });
 
-  const changeHandler = (e) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
-  };
+  const changeHandler = (e) =>
+    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const submitHandler = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // backend assumed:
-      // POST /user/signup
-
       const res = await api.post("/user/signup", formData);
-      console.log(res);
-      // save JWT
       localStorage.setItem("token", res.data.data);
-      
-      if (formData.role === "DONOR") {
-        navigate("/donor-dashboard");
-      } else {
-        navigate("/doctor-dashboard");
-      }
 
+      formData.role === "DONOR"
+        ? navigate("/donor-dashboard")
+        : navigate("/doctor-dashboard");
     } catch (err) {
       alert(err.response?.data?.message || "Signup failed");
     } finally {
@@ -56,78 +45,137 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-200 p-4">
+    <div className="min-h-screen bg-green-100 flex items-center justify-center p-6">
 
-      <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 overflow-hidden">
 
-        <h2 className="text-2xl font-bold text-center mb-6">Create Account</h2>
+        {/* LEFT */}
+        <div className="p-10 flex flex-col justify-center">
 
-        {/* ROLE */}
-        <div className="flex justify-center gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => setFormData(p => ({ ...p, role: "DONOR" }))}
-            className={`px-4 py-2 rounded-full ${
-              formData.role === "DONOR" ? "bg-blue-600 text-white" : "border"
-            }`}
-          >
-            Donor
-          </button>
+          <h2 className="text-3xl font-bold mb-2">Create an account</h2>
 
-          <button
-            type="button"
-            onClick={() => setFormData(p => ({ ...p, role: "DOCTOR" }))}
-            className={`px-4 py-2 rounded-full ${
-              formData.role === "DOCTOR" ? "bg-blue-600 text-white" : "border"
-            }`}
-          >
-            Doctor
-          </button>
-        </div>
-
-        <form onSubmit={submitHandler} className="space-y-4">
-
-          <input name="name" placeholder="Name" required className="border w-full p-2"
-            value={formData.name} onChange={changeHandler} />
-
-          <input name="email" placeholder="Email" required className="border w-full p-2"
-            value={formData.email} onChange={changeHandler} />
-
-          <input name="password" placeholder="Password" type="password" required className="border w-full p-2"
-            value={formData.password} onChange={changeHandler} />
-
-          <input name="phone" placeholder="Phone" required className="border w-full p-2"
-            value={formData.phone} onChange={changeHandler} />
-
-          <input name="address" placeholder="Address" required className="border w-full p-2"
-            value={formData.address} onChange={changeHandler} />
-
-          {formData.role === "DOCTOR" && (
+          {/* ================= STEP 1 ROLE ================= */}
+          {step === 1 && (
             <>
-              <input name="hospitalName" placeholder="Hospital Name" required className="border w-full p-2"
-                value={formData.hospitalName} onChange={changeHandler} />
+              <p className="text-gray-500 mb-6">
+                Choose how you want to register
+              </p>
 
-              <input name="city" placeholder="City" required className="border w-full p-2"
-                value={formData.city} onChange={changeHandler} />
+              <div className="space-y-4 mb-8">
+
+                <div
+                  onClick={() => setFormData(p => ({ ...p, role: "DONOR" }))}
+                  className={`border rounded-lg p-4 cursor-pointer flex justify-between items-center ${
+                    formData.role === "DONOR"
+                      ? "border-indigo-600 ring-2 ring-indigo-200"
+                      : ""
+                  }`}
+                >
+                  <div>
+                    <p className="font-medium">I'm a donor</p>
+                    <p className="text-sm text-gray-500">
+                      Register as organ donor
+                    </p>
+                  </div>
+                  {formData.role === "DONOR" && "✅"}
+                </div>
+
+                <div
+                  onClick={() => setFormData(p => ({ ...p, role: "DOCTOR" }))}
+                  className={`border rounded-lg p-4 cursor-pointer flex justify-between ${
+                    formData.role === "DOCTOR"
+                      ? "border-indigo-600 ring-2 ring-indigo-200"
+                  : ""}`}
+                >
+                  <div>
+                    <p className="font-medium">I'm a doctor</p>
+                    <p className="text-sm text-gray-500">
+                      Hospital access
+                    </p>
+                  </div>
+                  {formData.role === "DOCTOR" && "✅"}
+                </div>
+
+              </div>
+
+              <button
+                onClick={() => setStep(2)}
+                className="w-full bg-indigo-600 text-white py-3 rounded-lg"
+              >
+                Continue
+              </button>
             </>
           )}
 
-          <button disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded">
-            {loading ? "Creating..." : "Register"}
-          </button>
+          {/* ================= STEP 2 FORM ================= */}
+          {step === 2 && (
+  <form onSubmit={submitHandler} className="mt-6 space-y-4 max-w-sm">
 
-        </form>
+    {[
+      { name: "name", label: "Full name" },
+      { name: "email", label: "Email" },
+      { name: "password", label: "Password", type: "password" },
+      { name: "phone", label: "Phone" },
+      { name: "address", label: "Address" },
+    ].map((field) => (
+      <div key={field.name} className="relative">
 
-        <p className="text-center text-sm mt-4">
-          Already have an account?
-          <span onClick={() => navigate("/login")} className="text-blue-600 ml-1 cursor-pointer">
-            Login
-          </span>
-        </p>
+        <input
+          type={field.type || "text"}
+          name={field.name}
+          required
+          value={formData[field.name]}
+          onChange={changeHandler}
+          className="peer input pt-5"
+        />
+
+        <label className="absolute left-4 top-3 text-gray-700 font-medium text-sm transition-all
+          peer-focus:text-xs peer-focus:-top-2 peer-focus:bg-white peer-focus:px-1
+          peer-valid:text-xs peer-valid:-top-2 peer-valid:bg-white peer-valid:px-1">
+          {field.label}
+        </label>
+
+      </div>
+    ))}
+
+    {formData.role === "DOCTOR" && (
+      <div className="relative">
+        <input
+          name="hospitalName"
+          value={formData.hospitalName}
+          onChange={changeHandler}
+          className="peer input pt-5"
+        />
+        <label className="absolute left-4 top-3 text-gray-700 font-medium text-sm transition-all
+          peer-focus:text-xs peer-focus:-top-2 peer-focus:bg-white peer-focus:px-1
+          peer-valid:text-xs peer-valid:-top-2 peer-valid:bg-white peer-valid:px-1">
+          Hospital Name
+        </label>
+      </div>
+    )}
+
+    <button className="w-full bg-indigo-600 hover:bg-indigo-700 transition text-white py-3 rounded-lg font-medium shadow">
+      {loading ? "Creating..." : "Register"}
+    </button>
+
+  </form>
+)}
+
+
+          {/* PROGRESS */}
+          <div className="flex gap-2 mt-8">
+            <span className={`w-8 h-2 rounded-full ${step===1?"bg-indigo-600":"bg-gray-200"}`}></span>
+            <span className={`w-8 h-2 rounded-full ${step===2?"bg-indigo-600":"bg-gray-200"}`}></span>
+          </div>
+
+        </div>
+
+        {/* RIGHT PREVIEW */}
+        <div className="hidden md:flex items-center justify-center">
+          <img src={signupImage} className="w-[90%]" />
+        </div>
 
       </div>
     </div>
   );
-};
-
-export default Signup;
+}
