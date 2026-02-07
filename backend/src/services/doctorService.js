@@ -63,7 +63,7 @@ class DoctorService {
             distanceKm
           });
 
-        return {
+        const response = {
           ...organ.toObject(),
           distance: route.distance,
           duration: route.duration,
@@ -72,6 +72,8 @@ class DoctorService {
           riskLevel: scoreData.riskLevel,
           recommendation: scoreData.recommendation
         };
+        console.log(response);
+        return response;
       })
     );
 
