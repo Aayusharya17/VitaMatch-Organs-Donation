@@ -156,49 +156,6 @@ class DoctorService {
     return allocation;
   }
 
-  async dispatchOrgan(allocationId, doctorId) {
-
-    const allocation =
-      await this.validateDoctorOwnership(allocationId, doctorId);
-
-    validateAllocationTransition(
-      allocation.status,
-      "DISPATCHED"
-    );
-
-    allocation.status = "DISPATCHED";
-    allocation.dispatchTime = new Date();
-    allocation.dispatchedBy = doctorId;
-
-    await allocation.save();
-
-    const timestamp = new Date();
-
-    const hash =
-      this.blockchainService.generateHash({
-        allocationId: allocation._id.toString(),
-        status: "DISPATCHED",
-        previousHash: allocation.lastBlockchainHash,
-        timestamp
-      });
-
-    const txHash =
-      await this.blockchainService.storeHash(hash);
-
-    allocation.lastBlockchainHash = hash;
-
-    allocation.blockchainHistory.push({
-      status: "DISPATCHED",
-      hash,
-      txHash,
-      timestamp
-    });
-
-    await allocation.save();
-
-    return allocation;
-  }
-
   async completeAllocation(allocationId, doctorId) {
 
     const allocation =
