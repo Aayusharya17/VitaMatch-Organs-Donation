@@ -5,42 +5,55 @@ import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 
 /* ================= AXIOS INSTANCE ================= */
+
 const api = axios.create({
   baseURL: "http://localhost:5000/api/v1",
 });
 
 /* ================= COMPONENT ================= */
+
 const DoctorDashboard = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("dashboard");
+
   const [dashboard, setDashboard] = useState({});
   const [available, setAvailable] = useState([]);
+  const [allocations, setAllocations] = useState([]);
+
   const [organName, setOrganName] = useState("");
   const [bloodGroup, setBloodGroup] = useState("");
 
   const token = localStorage.getItem("token");
-  const authHeader = { headers: { "x-access-token": token } };
 
- useEffect(() => {
-    // if (!token) {
-    //   navigate("/login");
-    //   return;
-    // }
+  const authHeader = {
+    headers: {
+      "x-access-token": localStorage.getItem("token")
+    },
+  };
 
+  /* ================= LOAD ================= */
+
+  useEffect(() => {
     fetchDashboard();
     fetchAllocations();
   }, []);
-  
-  useEffect(() => {
-    console.log("Allocations updated:", allocations);
-  }, [allocations]);
 
   /* ================= API CALLS ================= */
+
   const fetchDashboard = async () => {
     try {
       const res = await api.get("/doctor/dashboard", authHeader);
       setDashboard(res.data.data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const fetchAllocations = async () => {
+    try {
+      const res = await api.get("/doctor/allocations", authHeader);
+      setAllocations(res.data.data);
     } catch (err) {
       console.log(err);
     }
@@ -66,7 +79,6 @@ const DoctorDashboard = () => {
         authHeader
       );
       alert("Organ requested successfully");
-      fetchDashboard();
     } catch (err) {
       console.log(err);
     }
@@ -76,15 +88,15 @@ const DoctorDashboard = () => {
     try {
       await api.post(
         "/doctor/accept-organ",
-        { organId, requestId: requestId || null },
+        { organId, requestId },
         authHeader
       );
+      fetchAllocations();
       alert("Organ accepted");
     } catch (err) {
       console.log(err);
     }
   };
-
   /* ================= UI ================= */
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-cyan-50 via-white to-blue-50">
