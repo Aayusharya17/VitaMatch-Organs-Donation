@@ -24,6 +24,7 @@ const signup = async (req,res) => {
 
 const login = async (req,res) => {
     try {
+        console.log(req.body);
         const token = await userServ.login(req.body);
         return res.status(201).json({
             data : token,

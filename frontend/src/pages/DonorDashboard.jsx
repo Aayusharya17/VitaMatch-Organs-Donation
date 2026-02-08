@@ -60,6 +60,30 @@ const DonorDashboard = () => {
     }
   };
 
+  const acceptOrganById = async (organId) => {
+  try {
+    await axios.post(
+      "http://localhost:5000/api/v1/donor/accept-organ",
+      { organId },
+      {
+        headers: { "x-access-token": token }
+      }
+    );
+
+    alert("Organ accepted successfully");
+
+    // refresh UI
+    fetchNeeds();
+    fetchMyRequests();
+    setActiveTab("myRequests");
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to accept organ");
+  }
+};
+
+
   const fetchMyRequests = async () => {
     const res = await axios.get(
       "http://localhost:5000/api/v1/donor/all",
@@ -774,11 +798,12 @@ const DonorDashboard = () => {
                         </div>
 
                         <button
-                          onClick={() => openDonationForm(h)}
-                          className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
-                        >
-                          Donate Now
-                        </button>
+                        onClick={() => acceptOrganById(h._id)}
+                        className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
+                      >
+                        Accept Organ
+                      </button>
+
                       </motion.div>
                     ))}
                   </div>

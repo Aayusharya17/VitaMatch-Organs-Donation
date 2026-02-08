@@ -133,6 +133,25 @@ class DonorService {
       throw error;
     }
   }
+
+  async acceptOrganById({ organId, donorId }) {
+  try {
+    const donation = await this.DonorRepository.findByOrganId(organId);
+
+    if (!donation) throw new Error("Donation not found");
+
+    donation.status = "MATCHED";
+    donation.donorId = donorId;
+
+    await donation.save();
+
+    return donation;
+
+  } catch (error) {
+    throw error;
+  }
+}
+
 }
 
 module.exports = DonorService;

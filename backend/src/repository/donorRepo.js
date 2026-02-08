@@ -77,6 +77,11 @@ class DonorRepository {
     }
   }
 
+  async findByOrganId(organId){
+  return await RequestedOrgan.findById(organId);
+}
+
+
 }
 
 module.exports = DonorRepository;
