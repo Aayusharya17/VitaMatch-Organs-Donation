@@ -644,8 +644,12 @@ const DonorDashboard = () => {
                       <div className="grid md:grid-cols-2 gap-6">
                         <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
                           <div className="h-48 bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center">
-                            <div className="text-white text-7xl">👨‍⚕️</div>
-                          </div>
+                                        <img
+                                          src="https://as1.ftcdn.net/jpg/06/44/76/82/1000_F_644768202_vmFGqeA1oAZr449AzHsRS7Qa4uk8x6Hf.jpg"
+                                          alt="Doctor"
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </div>
                           <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-800 mb-2">
                               John's Kidney Donation Journey
@@ -666,9 +670,13 @@ const DonorDashboard = () => {
                         </div>
 
                         <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-                          <div className="h-48 bg-gradient-to-br from-blue-400 to-indigo-400 flex items-center justify-center">
-                            <div className="text-white text-7xl">👩‍⚕️</div>
-                          </div>
+                          <div className="h-48 bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center">
+                                        <img
+                                          src="https://i.pinimg.com/1200x/10/d5/96/10d59688d8bd0bc894a08604cccfafe6.jpg"
+                                          alt="Doctor1"
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </div>
                           <div className="p-6">
                             <h3 className="text-xl font-bold text-gray-800 mb-2">
                               Sarah's Gift of Life
