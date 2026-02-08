@@ -32,6 +32,9 @@ const DonorDashboard = () => {
     bloodgroup: "",
   });
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+
   /* ================= EFFECT ================= */
 
   useEffect(() => {
@@ -60,36 +63,41 @@ const DonorDashboard = () => {
     }
   };
 
-  const acceptOrganById = async (organId) => {
-  try {
-    await axios.post(
-      "http://localhost:5000/api/v1/donor/accept-organ",
-      { organId },
-      {
-        headers: { "x-access-token": token }
-      }
-    );
-
-    alert("Organ accepted successfully");
-
-    // refresh UI
-    fetchNeeds();
-    fetchMyRequests();
-    setActiveTab("myRequests");
-
-  } catch (err) {
-    console.error(err);
-    alert("Failed to accept organ");
-  }
-};
-
-
   const fetchMyRequests = async () => {
     const res = await axios.get(
       "http://localhost:5000/api/v1/donor/all",
       { headers: { "x-access-token": token } }
     );
     setMyRequests(res.data.data || []);
+  };
+
+  const acceptOrganById = async (organId) => {
+    setIsLoading(true);
+    setLoadingMessage("Accepting organ request...");
+    
+    try {
+      await axios.post(
+        "http://localhost:5000/api/v1/donor/accept-organ",
+        { organId },
+        {
+          headers: { "x-access-token": token }
+        }
+      );
+
+      alert("Organ accepted successfully");
+
+      // refresh UI
+      await fetchNeeds();
+      await fetchMyRequests();
+      setActiveTab("myRequests");
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to accept organ");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const submitDonation = async (e) => {
@@ -109,32 +117,66 @@ const DonorDashboard = () => {
 
   const submitConsent = async (e) => {
     e.preventDefault();
-    await axios.post(
-      "http://localhost:5000/api/v1/donor/confirmDonation",
-      { organId, consentType },
-      { headers: { "x-access-token": token } }
-    );
-    setShowForm(false);
-    setActiveTab("myRequests");
-    fetchMyRequests();
+    setIsLoading(true);
+    setLoadingMessage("Processing your donation consent...");
+    
+    try {
+      await axios.post(
+        "http://localhost:5000/api/v1/donor/confirmDonation",
+        { organId, consentType },
+        { headers: { "x-access-token": token } }
+      );
+      
+      setShowForm(false);
+      setActiveTab("myRequests");
+      await fetchMyRequests();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to confirm donation. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const confirmAllocation = async (id) => {
-    await axios.post(
-      `http://localhost:5000/api/v1/donor/confirm-allocation/${id}`,
-      {},
-      { headers: { "x-access-token": token } }
-    );
-    fetchMyRequests();
+    setIsLoading(true);
+    setLoadingMessage("Confirming allocation...");
+    
+    try {
+      await axios.post(
+        `http://localhost:5000/api/v1/donor/confirm-allocation/${id}`,
+        {},
+        { headers: { "x-access-token": token } }
+      );
+      await fetchMyRequests();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to confirm allocation. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const rejectAllocation = async (id) => {
-    await axios.post(
-      `http://localhost:5000/api/v1/donor/reject-allocation/${id}`,
-      {},
-      { headers: { "x-access-token": token } }
-    );
-    fetchMyRequests();
+    setIsLoading(true);
+    setLoadingMessage("Rejecting allocation...");
+    
+    try {
+      await axios.post(
+        `http://localhost:5000/api/v1/donor/reject-allocation/${id}`,
+        {},
+        { headers: { "x-access-token": token } }
+      );
+      await fetchMyRequests();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to reject allocation. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const openDonationForm = (req = {}) => {
@@ -166,6 +208,36 @@ const DonorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
+      {/* Loading Modal */}
+      <AnimatePresence>
+        {isLoading && (
+          <>
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50"></div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 flex items-center justify-center z-50"
+            >
+              <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-4">
+                <div className="flex flex-col items-center">
+                  {/* Spinner */}
+                  <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
+                  
+                  {/* Message */}
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    Processing...
+                  </h3>
+                  <p className="text-gray-600 text-center">
+                    {loadingMessage}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="flex max-w-7xl mx-auto">
         {/* Sidebar */}
         <aside className="w-72 min-h-screen bg-white shadow-xl border-r border-gray-100 p-8 hidden lg:flex flex-col sticky top-0">
@@ -806,12 +878,11 @@ const DonorDashboard = () => {
                         </div>
 
                         <button
-                        onClick={() => acceptOrganById(h._id)}
-                        className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
-                      >
-                        Accept Organ
-                      </button>
-
+                          onClick={() => openDonationForm(h)}
+                          className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
+                        >
+                          Donate Now
+                        </button>
                       </motion.div>
                     ))}
                   </div>
