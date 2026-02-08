@@ -49,41 +49,54 @@ class DoctorRepository {
       .sort({ createdAt: -1 });
   }
 
-  async getHospitalRequests(doctorId) {
+    async getHospitalRequests(doctorId) {
 
-    const doctor = await User.findById(doctorId);
-    if (!doctor) throw new Error("Doctor not found");
+      const doctor = await User.findById(doctorId);
+      if (!doctor) throw new Error("Doctor not found");
 
-    return await RequestedOrgan.find({
-      hospitalId: doctor.hospitalId
-    }).sort({ createdAt: -1 });
-  }
+      return await RequestedOrgan.find({
+        hospitalId: doctor.hospitalId
+      }).sort({ createdAt: -1 });
+    }
 
   async getDoctorAllocations(doctorId, statusFilter) {
 
-    const doctorRequests =
-      await RequestedOrgan.find({ doctorId }).select("_id");
+  // 1. get all requests created by doctor
+  const doctorRequests =
+    await RequestedOrgan.find({ doctorId }).select("_id");
 
-    const requestIds = doctorRequests.map(r => r._id);
+  const requestIds =
+    doctorRequests.map(r => r._id);
 
-    let statusQuery = {};
+  // if doctor has no requests
+  if (!requestIds.length) return [];
+
+  // 2. base query (ALWAYS applied)
+  const query = {
+    requestId: { $in: requestIds }
+  };
+
+  // 3. OPTIONAL FILTERING
+  if (statusFilter) {
 
     if (statusFilter === "ALL_ACTIVE") {
-      statusQuery.status = {
+      query.status = {
         $in: ["PENDING_CONFIRMATION", "MATCHED"]
       };
-    } else if (statusFilter && statusFilter !== "ALL") {
-      statusQuery.status = statusFilter;
+    }
+    else if (statusFilter !== "ALL") {
+      query.status = statusFilter;
     }
 
-    return await Allocation.find({
-      requestId: { $in: requestIds },
-      ...statusQuery
-    })
-      .populate("organId", "organName bloodGroup status donorId")
-      .populate("requestId", "organName urgencyScore status")
-      .populate("hospitalId", "name");
   }
+
+  // 4. fetch allocations
+  return await Allocation.find(query)
+    .sort({ createdAt: -1 })
+    .populate("organId", "organName bloodGroup status donorId")
+    .populate("requestId", "organName urgencyScore status")
+    .populate("hospitalId", "name");
+}
 
   // ================================
   // NEW DASHBOARD COUNTS METHOD

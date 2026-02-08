@@ -6,10 +6,15 @@ class MatchScoreService {
     distanceKm
   }) {
 
-    urgencyScore = Number(urgencyScore || 5);
+    // ---- Normalize inputs ----
+    urgencyScore = Number(urgencyScore ?? 5);
 
-    if (!distanceKm) distanceKm = 2000;
+    // distance can be 0, so check null/undefined only
+    if (distanceKm === null || distanceKm === undefined) {
+      distanceKm = 2000;
+    }
 
+    // ---- Organ specific safe transport distance ----
     let safeDistance;
 
     switch (organName) {
@@ -26,18 +31,21 @@ class MatchScoreService {
         safeDistance = 1000;
     }
 
+    // ---- Distance impact ----
     const distanceFactor =
       Math.exp(-distanceKm / safeDistance);
 
+    // ---- Weighted scoring ----
     const urgencyComponent =
-      urgencyScore * 10 * 0.7;
+      (urgencyScore / 10) * 70;
 
     const distanceComponent =
-      distanceFactor * 100 * 0.3;
+      distanceFactor * 30;
 
     const matchScore =
       urgencyComponent + distanceComponent;
 
+    // ---- Risk calculation ----
     let riskLevel;
     let recommendation;
 
