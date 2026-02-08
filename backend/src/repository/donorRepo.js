@@ -77,6 +77,14 @@ class DonorRepository {
     }
   }
 
+  async findByOrganId(organId){
+  console.log(organId,"\n");
+  const organ = await RequestedOrgan.findById(organId);
+  console.log(organ)
+  return organ;
+}
+
+
 }
 
 module.exports = DonorRepository;

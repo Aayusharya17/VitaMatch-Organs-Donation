@@ -133,6 +133,40 @@ class DonorService {
       throw error;
     }
   }
+
+  async acceptOrganById({ organId, donorId }) {
+  try {
+    const requestId = organId;
+    console.log("requestid : ",requestId,"\n")
+    const donation = await this.DonorRepository.findByOrganId(requestId);
+
+    if (!donation) throw new Error("Donation not found");
+
+    donation.status = "MATCHED";
+    donation.donorId = donorId;
+
+    const allocation = await Allocation.create({
+          requestId,
+          hospitalId: donation.hospitalId,
+          matchScore: 100,
+          status: "MATCHED"
+        });
+        
+        donation.allocationId = allocation._id;
+        donation.status = "MATCHED";
+
+        console.log(donation);
+        console.log(allocation);
+
+    await donation.save();
+
+    return donation;
+
+  } catch (error) {
+    throw error;
+  }
+}
+
 }
 
 module.exports = DonorService;

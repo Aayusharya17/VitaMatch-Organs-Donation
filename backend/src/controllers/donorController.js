@@ -63,6 +63,7 @@ const findAllRequests = async (req,res) => {
         const bloodGroup = req.query.bloodGroup;
         const organName = req.query.organName;
         const requests = await donorServ.findAllRequests({bloodGroup,organName})
+        console.log(requests);
         return res.status(201).json({
             data : requests,
             success:true,
@@ -114,11 +115,45 @@ const findAll = async (req,res) => {
     }
 }
 
+const acceptOrganById = async (req, res) => {
+  try {
+    const donorId = req.user.id;
+    const { organId } = req.body;
+    console.log(organId);
+    if (!organId) {
+      return res.status(400).json({
+        success: false,
+        message: "organId is required"
+      });
+    }
+
+    const result = await donorServ.acceptOrganById({
+      organId,
+      donorId
+    });
+    console.log(result);
+
+    return res.status(200).json({
+      success: true,
+      message: "Organ accepted successfully",
+      data: result
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
 module.exports = {
     createDonation,
     confirmDonation,
     findAllRequests,
     rejectAllocation,
     confirmAllocation,
-    findAll
+    findAll,
+    acceptOrganById
 }
