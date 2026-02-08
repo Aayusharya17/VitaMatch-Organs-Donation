@@ -1,4 +1,4 @@
-# 🫀 VitaMatch – Organ Donation Management System
+# VitaMatch – Organ Donation Management System
 
 VitaMatch is a full-stack web application designed to streamline and digitize the organ donation and allocation process between **donors**, **doctors**, and **hospitals**.
 
@@ -6,15 +6,15 @@ The platform enables donors to register and offer organs, doctors to request and
 
 ---
 
-## 🚀 Features
+## Features
 
-### 👤 Authentication
+### Authentication
 - JWT based login/signup
 - Role based access (Donor / Doctor)
 
 ---
 
-### ❤️ Donor Dashboard
+### Donor Dashboard
 - View available organ requests
 - Donate organs voluntarily or to hospital requests
 - Provide consent (Living / Post-death)
@@ -23,7 +23,7 @@ The platform enables donors to register and offer organs, doctors to request and
 
 ---
 
-### 👨‍⚕️ Doctor Dashboard
+### Doctor Dashboard
 - View hospital requests
 - Request organs
 - View available donors
@@ -33,7 +33,7 @@ The platform enables donors to register and offer organs, doctors to request and
 
 ---
 
-### 🔐 Security
+### Security
 - JWT authentication
 - Protected routes
 - Role validation
@@ -41,7 +41,7 @@ The platform enables donors to register and offer organs, doctors to request and
 
 ---
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 ### Frontend
 - React
@@ -60,6 +60,3 @@ The platform enables donors to register and offer organs, doctors to request and
 - bcrypt
 
 ---
-
-## 📁 Project Structure
-
