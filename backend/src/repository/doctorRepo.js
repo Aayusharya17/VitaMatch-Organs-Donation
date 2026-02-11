@@ -8,9 +8,12 @@ class DoctorRepository {
 
   async createRequest(data) {
     try {
-
       const doctor = await User.findById(data.doctorId);
       if (!doctor) throw new Error("Doctor not found");
+
+      if (doctor.role !== "DOCTOR") {
+        throw new Error("Only doctors can create organ requests");
+      }
 
       data.doctorName = doctor.name;
       data.address = doctor.address;
@@ -30,117 +33,157 @@ class DoctorRepository {
       return organ;
 
     } catch (error) {
-      console.log(error);
+      console.error("Repository error creating request:", error);
       throw error;
     }
   }
 
   async findAllAvailable(data) {
-    const organs = await DonatedOrgan.find({
-      organName: data.organName,
-      bloodGroup: data.bloodGroup,
-      status: "AVAILABLE"
-    });
-    return organs;
+    try {
+      const query = {
+        status: "AVAILABLE"
+      };
+
+      if (data.organName) {
+        query.organName = data.organName;
+      }
+
+      if (data.bloodGroup) {
+        query.bloodGroup = data.bloodGroup;
+      }
+
+      // FIXED: Changed from 'DONOR' model to 'User' model reference
+      const organs = await DonatedOrgan.find(query)
+        .populate('donorId', 'name phoneNumber email role')
+        .populate('hospitalId', 'name address phoneNumber')
+        .sort({ createdAt: -1 });
+
+      return organs;
+    } catch (error) {
+      console.error("Repository error finding available organs:", error);
+      throw error;
+    }
   }
 
   async getDoctorRequests(doctorId) {
-    return await RequestedOrgan.find({ doctorId })
-      .sort({ createdAt: -1 });
+    try {
+      return await RequestedOrgan.find({ doctorId })
+        .populate('hospitalId', 'name address')
+        .sort({ createdAt: -1 });
+    } catch (error) {
+      console.error("Repository error getting doctor requests:", error);
+      throw error;
+    }
   }
 
-    async getHospitalRequests(doctorId) {
-
+  async getHospitalRequests(doctorId) {
+    try {
       const doctor = await User.findById(doctorId);
       if (!doctor) throw new Error("Doctor not found");
 
+      if (!doctor.hospitalId) {
+        return [];
+      }
+
       return await RequestedOrgan.find({
         hospitalId: doctor.hospitalId
-      }).sort({ createdAt: -1 });
+      })
+        .populate('doctorId', 'name phoneNumber')
+        .sort({ createdAt: -1 });
+    } catch (error) {
+      console.error("Repository error getting hospital requests:", error);
+      throw error;
     }
-
-  async getDoctorAllocations(doctorId, statusFilter) {
-
-  // 1. get all requests created by doctor
-  const doctorRequests =
-    await RequestedOrgan.find({ doctorId }).select("_id");
-
-  const requestIds =
-    doctorRequests.map(r => r._id);
-
-  // if doctor has no requests
-  if (!requestIds.length) return [];
-
-  // 2. base query (ALWAYS applied)
-  const query = {
-    requestId: { $in: requestIds }
-  };
-
-  // 3. OPTIONAL FILTERING
-  if (statusFilter) {
-
-    if (statusFilter === "ALL_ACTIVE") {
-      query.status = {
-        $in: ["PENDING_CONFIRMATION", "MATCHED"]
-      };
-    }
-    else if (statusFilter !== "ALL") {
-      query.status = statusFilter;
-    }
-
   }
 
-  // 4. fetch allocations
-  return await Allocation.find(query)
-    .sort({ createdAt: -1 })
-    .populate("organId", "organName bloodGroup status donorId")
-    .populate("requestId", "organName urgencyScore status")
-    .populate("hospitalId", "name");
-}
+  async getDoctorAllocations(doctorId, statusFilter) {
+    try {
+      // Get all requests created by doctor
+      const doctorRequests = await RequestedOrgan.find({ doctorId }).select("_id");
+      const requestIds = doctorRequests.map(r => r._id);
 
-  // ================================
-  // NEW DASHBOARD COUNTS METHOD
-  // ================================
+      // If doctor has no requests
+      if (!requestIds.length) return [];
+
+      // Base query
+      const query = {
+        requestId: { $in: requestIds }
+      };
+
+      // Optional filtering
+      if (statusFilter) {
+        if (statusFilter === "ALL_ACTIVE") {
+          query.status = {
+            $in: ["PENDING_CONFIRMATION", "MATCHED"]
+          };
+        } else if (statusFilter !== "ALL") {
+          query.status = statusFilter;
+        }
+      }
+
+      // Fetch allocations
+      return await Allocation.find(query)
+        .sort({ createdAt: -1 })
+        .populate("organId", "organName bloodGroup status donorId")
+        .populate("requestId", "organName urgencyScore status")
+        .populate("hospitalId", "name address");
+    } catch (error) {
+      console.error("Repository error getting allocations:", error);
+      throw error;
+    }
+  }
+
+  async viewRequest(requestId) {
+    try {
+      const response = await RequestedOrgan.findById(requestId)
+        .populate('doctorId', 'name phoneNumber email')
+        .populate('hospitalId', 'name address phoneNumber');
+
+      if (!response) {
+        throw new Error("Request not found");
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Repository error viewing request:", error);
+      throw error;
+    }
+  }
+
   async getDoctorDashboardCounts(doctorId) {
+    try {
+      const doctorRequests = await RequestedOrgan.find({ doctorId }).select("_id");
+      const requestIds = doctorRequests.map(r => r._id);
 
-    const doctorRequests =
-      await RequestedOrgan.find({ doctorId })
-        .select("_id");
+      const totalRequests = requestIds.length;
 
-    const requestIds =
-      doctorRequests.map(r => r._id);
-
-    const totalRequests = requestIds.length;
-
-    const activeAllocations =
-      await Allocation.countDocuments({
+      const activeAllocations = await Allocation.countDocuments({
         requestId: { $in: requestIds },
         status: {
-          $in: [
-            "PENDING_CONFIRMATION",
-            "MATCHED"
-          ]
+          $in: ["PENDING_CONFIRMATION", "MATCHED"]
         }
       });
 
-    const completedTransplants =
-      await Allocation.countDocuments({
+      const completedTransplants = await Allocation.countDocuments({
         requestId: { $in: requestIds },
         status: "COMPLETED"
       });
 
-    const failedAllocations =
-      await Allocation.countDocuments({
+      const failedAllocations = await Allocation.countDocuments({
         requestId: { $in: requestIds },
         status: "FAILED"
       });
 
-    return {
-      totalRequests,
-      activeAllocations,
-      completedTransplants,
-      failedAllocations
-    };
+      return {
+        totalRequests,
+        activeAllocations,
+        completedTransplants,
+        failedAllocations
+      };
+    } catch (error) {
+      console.error("Repository error getting dashboard counts:", error);
+      throw error;
+    }
   }
 }
 

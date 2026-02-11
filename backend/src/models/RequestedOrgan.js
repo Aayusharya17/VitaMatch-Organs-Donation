@@ -3,28 +3,31 @@ const mongoose = require('mongoose');
 const requestedOrganSchema = new mongoose.Schema({
     organName: {
         type: String,
-        enum: ["Heart", "Liver", "Lungs", "Kidney", "Eye"]
+        enum: ["Heart", "Liver", "Lungs", "Kidney", "Eye"],
+        required: true
     },
     bloodGroup: {
         type: String,
-        enum: ["A_POS", "A_NEG", "B_POS", "B_NEG", "AB_POS", "AB_NEG", "O_POS", "O_NEG"]
+        enum: ["A_POS", "A_NEG", "B_POS", "B_NEG", "AB_POS", "AB_NEG", "O_POS", "O_NEG"],
+        required: true
     },
     hospitalId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Hospital"
     },
-    doctorId:{
-        type : mongoose.Schema.Types.ObjectId,
-        ref : "User"
+    doctorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true
     },
     doctorName: {
-        type : String
+        type: String
     },
-    address : {
-        type : String
+    address: {
+        type: String
     },
-    phoneNumber : {
-        type : String
+    phoneNumber: {
+        type: String
     },
     urgencyScore: {
         type: Number,
@@ -46,7 +49,7 @@ const requestedOrganSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["WAITING", "MATCHED", "PENDING_CONFIRMATION","TRANSPLANTED", "CANCELLED"],
+        enum: ["WAITING", "MATCHED", "PENDING_CONFIRMATION", "TRANSPLANTED", "CANCELLED"],
         default: "WAITING"
     }
 }, { timestamps: true });

@@ -3,12 +3,13 @@ const router = express.Router();
 const doctorController = require('../../controllers/doctorController');
 const { authMiddleware } = require('../../middleware/auth');
 
-router.post('/requestOrgan',authMiddleware,doctorController.requestOrgan);
-router.get('/availableOrgans',authMiddleware,doctorController.findAllAvailable);
-router.post('/accept-organ',authMiddleware,doctorController.acceptOrgan);
-router.get('/dashboard',authMiddleware,doctorController.doctorDashboard);
-router.get('/allocations',authMiddleware,doctorController.getDoctorAllocations);
-router.post("/complete-allocation",authMiddleware,doctorController.completeAllocation);
-router.post("/fail-allocation",authMiddleware,doctorController.failAllocation);
+router.post('/requestOrgan', authMiddleware, doctorController.requestOrgan);
+router.get('/availableOrgans', authMiddleware, doctorController.findAllAvailable);
+router.post('/accept-organ', authMiddleware, doctorController.acceptOrgan);
+router.get('/dashboard', authMiddleware, doctorController.doctorDashboard);
+router.get('/allocations', authMiddleware, doctorController.getDoctorAllocations);
+router.post("/complete-allocation", authMiddleware, doctorController.completeAllocation);
+router.post("/fail-allocation", authMiddleware, doctorController.failAllocation);
+router.get('/viewRequest', authMiddleware, doctorController.viewRequest);
 
 module.exports = router;

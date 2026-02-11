@@ -25,17 +25,22 @@ class DonorRepository {
         return donation;
 
     } catch (error) {
-        console.log(error);
+        console.error("Repository error creating donation:", error);
         throw new Error("Problem creating donation");
     }
   }
 
   async confirmDonation(donatedOrganId, donorId, consentType) {
     try {
-      console.log("Donatedorganid : ",donatedOrganId,"\n")
+      console.log("Donated organ ID: ", donatedOrganId, "\n");
       const organ = await DonatedOrgan.findById(donatedOrganId);
 
       if (!organ) throw new Error("Organ not found");
+
+      // Verify ownership
+      if (organ.donorId.toString() !== donorId.toString()) {
+        throw new Error("Unauthorized: You can only confirm your own donations");
+      }
 
       const consent = await Consent.create({
         donorId,
@@ -50,41 +55,66 @@ class DonorRepository {
       return organ;
 
     } catch (error) {
-      console.log(error);
+      console.error("Repository error confirming donation:", error);
       throw error;
     }
   }
 
-  async findAllRequests(data){
+  async findAllRequests(data) {
     try {
-        const organName = data.organName;
-        const bloodGroup = data.bloodGroup;
-        const requests = await RequestedOrgan.find({organName,bloodGroup,status:"WAITING"});
-        return requests
+        const query = { status: "WAITING" };
+        
+        if (data.organName) {
+            query.organName = data.organName;
+        }
+        
+        if (data.bloodGroup) {
+            query.bloodGroup = data.bloodGroup;
+        }
+        
+        const requests = await RequestedOrgan.find(query)
+            .populate('hospitalId', 'name address')
+            .populate('doctorId', 'name email phoneNumber')
+            .sort({ createdAt: -1 });
+            
+        return requests;
     } catch (error) {
-        console.log(error);
+        console.error("Repository error finding requests:", error);
         throw error;
     }
   }
 
-  async findAll(donorId){
+  async findAll(donorId) {
     try {
-        const all = await DonatedOrgan.find({donorId});
+        const all = await DonatedOrgan.find({ donorId })
+            .populate('hospitalId', 'name address')
+            .populate('allocationId')
+            .sort({ createdAt: -1 });
         return all;
     } catch (error) {
-        console.log(error);
+        console.error("Repository error finding all donations:", error);
         throw error;
     }
   }
 
-  async findByOrganId(organId){
-  console.log(organId,"\n");
-  const organ = await RequestedOrgan.findById(organId);
-  console.log(organ)
-  return organ;
-}
-
-
+  async findByOrganId(organId) {
+    try {
+        console.log("Finding organ by ID:", organId, "\n");
+        const organ = await RequestedOrgan.findById(organId)
+            .populate('hospitalId', 'name address')
+            .populate('doctorId', 'name email phoneNumber');
+        
+        if (!organ) {
+            throw new Error("Requested organ not found");
+        }
+        
+        console.log("Found organ:", organ);
+        return organ;
+    } catch (error) {
+        console.error("Repository error finding organ by ID:", error);
+        throw error;
+    }
+  }
 }
 
 module.exports = DonorRepository;

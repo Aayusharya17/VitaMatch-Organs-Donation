@@ -23,7 +23,8 @@ const allocationSchema = new mongoose.Schema({
       "PENDING_CONFIRMATION",
       "MATCHED",
       "COMPLETED",
-      "FAILED"
+      "FAILED",
+      "REJECTED"  // Added REJECTED status for consistency
     ],
     default: "PENDING_CONFIRMATION"
   },
