@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema({
 
     email: {
         type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true
     },
 
     password: {
@@ -19,7 +23,8 @@ const userSchema = new mongoose.Schema({
 
     role: {
         type: String,
-        enum: ["DONOR", "DOCTOR", "ADMIN"]
+        enum: ["DONOR", "DOCTOR", "ADMIN"],
+        required: true
     },
 
     hospitalId: {
@@ -42,8 +47,16 @@ const userSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-userSchema.pre('save', async function () {
-    this.password = await bcrypt.hash(this.password, saltRounds);
+userSchema.pre('save', async function (next) {
+    // Only hash the password if it has been modified (or is new)
+    if (!this.isModified('password')) return next();
+    
+    try {
+        this.password = await bcrypt.hash(this.password, saltRounds);
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
 
 module.exports = mongoose.model("User", userSchema);

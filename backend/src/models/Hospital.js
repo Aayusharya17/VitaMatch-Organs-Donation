@@ -1,31 +1,34 @@
 const mongoose = require('mongoose');
 
 const hospitalSchema = new mongoose.Schema({
-    name : {
-        type : String
+    name: {
+        type: String
     },
-    address : {
-        type : String
+    address: {
+        type: String
     },
-    doctor : [
+    phoneNumber: {
+        type: String
+    },
+    doctor: [
         {
-            type : mongoose.Schema.Types.ObjectId,
-            ref :  'User'
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         }
     ],
-    request : [
+    request: [
         {
-            type : mongoose.Schema.Types.ObjectId,
-            ref : 'RequestedOrgan'
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'RequestedOrgan'
         }
     ],
-    donate : [
+    donate: [
         {
-            type : mongoose.Schema.Types.ObjectId,
-            ref : 'DonatedOrgan'
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DonatedOrgan'
         }
     ]
-})
+}, { timestamps: true });
 
-const Hospital = mongoose.model('Hospital' , hospitalSchema);
+const Hospital = mongoose.model('Hospital', hospitalSchema);
 module.exports = Hospital;

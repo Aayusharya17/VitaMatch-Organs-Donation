@@ -8,6 +8,7 @@ const Notification = require("../models/Notification");
 const DonatedOrgan = require("../models/DonatedOrgan");
 const GeocodingService = require("./geocodingService");
 const BlockchainService = require("./blockchainService");
+const { validateAllocationTransition } = require("./allocationStateService");
 
 class DonorService {
 
@@ -52,77 +53,130 @@ class DonorService {
     }
   }
 
-  async confirmAllocation(organId) {
-    const organ = await DonatedOrgan.findById(organId);
-    if (!organ) throw new Error("Organ not found");
+  async confirmAllocation(allocationId, donorId) {
+    try {
+      const allocation = await Allocation.findById(allocationId);
+      if (!allocation) throw new Error("Allocation not found");
 
-    const allocation = await Allocation.findById(organ.allocationId);
-    if (!allocation) throw new Error("Allocation not found");
+      const organ = await DonatedOrgan.findById(allocation.organId);
+      if (!organ) throw new Error("Organ not found");
 
-    const request = await RequestedOrgan.findById(allocation.requestId);
+      // FIXED: Add ownership validation
+      if (organ.donorId.toString() !== donorId.toString()) {
+        throw new Error("Unauthorized: You can only confirm your own organ donations");
+      }
 
-    allocation.status = "MATCHED";
-    organ.status = "ALLOCATED";
+      // FIXED: Add state transition validation
+      validateAllocationTransition(allocation.status, "MATCHED");
 
-    await organ.save();
+      const request = await RequestedOrgan.findById(allocation.requestId);
 
-    const timestamp = Date.now();
+      allocation.status = "MATCHED";
+      organ.status = "ALLOCATED";
 
-    const hash = this.blockchainService.generateHash({
-      allocationId: allocation._id.toString(),
-      status: "MATCHED",
-      previousHash: allocation.lastBlockchainHash,
-      timestamp
-    });
+      await organ.save();
 
-    const txHash =
-      await this.blockchainService.storeHash(hash);
-
-    allocation.lastBlockchainHash = hash;
-
-    allocation.blockchainHistory.push({
-      status: "MATCHED",
-      hash,
-      txHash,
-      timestamp: new Date(timestamp)
-    });
-
-    await allocation.save();
-    if (request) {
-      await Notification.create({
-        userId: request.doctorId,
-        message: "Donor confirmed transplant request.",
-        allocationId: allocation._id
+      // Blockchain recording
+      const timestamp = Date.now();
+      const hash = this.blockchainService.generateHash({
+        allocationId: allocation._id.toString(),
+        status: "MATCHED",
+        previousHash: allocation.lastBlockchainHash,
+        timestamp
       });
+
+      const txHash = await this.blockchainService.storeHash(hash);
+
+      allocation.lastBlockchainHash = hash;
+      allocation.blockchainHistory.push({
+        status: "MATCHED",
+        hash,
+        txHash,
+        timestamp: new Date(timestamp)
+      });
+
+      await allocation.save();
+      
+      if (request) {
+        await Notification.create({
+          userId: request.doctorId,
+          message: "Donor confirmed transplant request.",
+          allocationId: allocation._id
+        });
+      }
+      
+      return allocation;
+    } catch (error) {
+      console.error("Service error confirming allocation:", error);
+      throw error;
     }
-    return allocation;
   }
 
-  async rejectAllocation(allocationId) {
+  async rejectAllocation(allocationId, donorId) {
+    try {
+      const allocation = await Allocation.findById(allocationId);
+      if (!allocation) throw new Error("Allocation not found");
 
-    const allocation = await Allocation.findById(allocationId);
-    if (!allocation) throw new Error("Allocation not found");
+      const organ = await DonatedOrgan.findById(allocation.organId);
+      if (!organ) throw new Error("Organ not found");
 
-    const organ = await DonatedOrgan.findById(allocation.organId);
-    const request = await RequestedOrgan.findById(allocation.requestId);
+      // FIXED: Add ownership validation
+      if (organ.donorId.toString() !== donorId.toString()) {
+        throw new Error("Unauthorized: You can only reject your own organ donations");
+      }
 
-    allocation.status = "REJECTED";
-    organ.status = "AVAILABLE";
-    request.status = "WAITING";
-    request.allocationId = null;
+      // FIXED: Add state transition validation
+      validateAllocationTransition(allocation.status, "REJECTED");
 
-    await allocation.save();
-    await organ.save();
-    await request.save();
+      const request = await RequestedOrgan.findById(allocation.requestId);
 
-    await Notification.create({
-      userId: request.createdByDoctorId,
-      message:
-        "Donor has REJECTED the transplant request. Organ returned to pool.",
-      allocationId: allocation._id
-    });
+      allocation.status = "REJECTED";
+      organ.status = "AVAILABLE";
+      organ.allocationId = null;
 
-    return allocation;
+      if (request) {
+        request.status = "WAITING";
+        request.allocationId = null;
+        await request.save();
+      }
+
+      await allocation.save();
+      await organ.save();
+
+      // FIXED: Add blockchain recording for rejection
+      const timestamp = Date.now();
+      const hash = this.blockchainService.generateHash({
+        allocationId: allocation._id.toString(),
+        status: "REJECTED",
+        previousHash: allocation.lastBlockchainHash,
+        timestamp
+      });
+
+      const txHash = await this.blockchainService.storeHash(hash);
+
+      allocation.lastBlockchainHash = hash;
+      allocation.blockchainHistory.push({
+        status: "REJECTED",
+        hash,
+        txHash,
+        timestamp: new Date(timestamp)
+      });
+
+      await allocation.save();
+
+      if (request) {
+        await Notification.create({
+          userId: request.doctorId,
+          message: "Donor has REJECTED the transplant request. Organ returned to pool.",
+          allocationId: allocation._id
+        });
+      }
+
+      return allocation;
+    } catch (error) {
+      console.error("Service error rejecting allocation:", error);
+      throw error;
+    }
   }
 
   async findAll(donorId) {
@@ -135,38 +189,94 @@ class DonorService {
   }
 
   async acceptOrganById({ organId, donorId }) {
-  try {
-    const requestId = organId;
-    console.log("requestid : ",requestId,"\n")
-    const donation = await this.DonorRepository.findByOrganId(requestId);
+    try {
+      const requestId = organId;
+      console.log("Request ID: ", requestId, "\n");
+      
+      // Find the requested organ (hospital request)
+      const requestedOrgan = await this.DonorRepository.findByOrganId(requestId);
 
-    if (!donation) throw new Error("Donation not found");
+      if (!requestedOrgan) throw new Error("Requested organ not found");
+      
+      // Check if already matched
+      if (requestedOrgan.status === "MATCHED") {
+        throw new Error("This organ request is already matched");
+      }
 
-    donation.status = "MATCHED";
-    donation.donorId = donorId;
+      // Get donor information
+      const donor = await User.findById(donorId);
+      if (!donor) throw new Error("Donor not found");
 
-    const allocation = await Allocation.create({
-          requestId,
-          hospitalId: donation.hospitalId,
-          matchScore: 100,
-          status: "MATCHED"
-        });
-        
-        donation.allocationId = allocation._id;
-        donation.status = "MATCHED";
+      const donatedOrgan = await DonatedOrgan.create({
+        organName: requestedOrgan.organName,
+        bloodGroup: requestedOrgan.bloodGroup,
+        donorId: donorId,
+        role: "DONOR",
+        hospitalId: requestedOrgan.hospitalId,
+        address: donor.address,
+        location: donor.location,
+        phoneNumber: donor.phoneNumber,
+        status: "RESERVED"
+      });
 
-        console.log(donation);
-        console.log(allocation);
+      const allocation = await Allocation.create({
+        requestId: requestId,
+        organId: donatedOrgan._id,
+        hospitalId: requestedOrgan.hospitalId,
+        matchScore: 100,
+        status: "PENDING_CONFIRMATION"
+      });
 
-    await donation.save();
+      const timestamp = Date.now();
+      const hash = this.blockchainService.generateHash({
+        allocationId: allocation._id.toString(),
+        status: "PENDING_CONFIRMATION",
+        previousHash: null,
+        timestamp
+      });
 
-    return donation;
+      const txHash = await this.blockchainService.storeHash(hash);
 
-  } catch (error) {
-    throw error;
+      allocation.lastBlockchainHash = hash;
+      allocation.blockchainHistory.push({
+        status: "PENDING_CONFIRMATION",
+        hash,
+        txHash,
+        timestamp: new Date(timestamp)
+      });
+
+      await allocation.save();
+
+      // Update donated organ with allocation
+      donatedOrgan.allocationId = allocation._id;
+      await donatedOrgan.save();
+
+      // Update requested organ status
+      requestedOrgan.status = "MATCHED";
+      requestedOrgan.allocationId = allocation._id;
+      await requestedOrgan.save();
+
+      // Create notification for the doctor
+      await Notification.create({
+        userId: requestedOrgan.doctorId,
+        message: `A donor has accepted your organ request for ${requestedOrgan.organName}`,
+        allocationId: allocation._id
+      });
+
+      console.log("Donated Organ:", donatedOrgan);
+      console.log("Allocation:", allocation);
+
+      return {
+        donatedOrgan,
+        allocation,
+        requestedOrgan
+      };
+
+    } catch (error) {
+      console.log(error);
+      throw error;
+    }
   }
-}
-
 }
 
 module.exports = DonorService;

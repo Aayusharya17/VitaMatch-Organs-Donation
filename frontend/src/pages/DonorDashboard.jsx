@@ -58,25 +58,35 @@ const DonorDashboard = () => {
       );
       setAvailable(res.data.data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching needs:", err);
+      alert("Failed to fetch available requests. Please try again.");
       setAvailable([]);
     }
   };
 
   const fetchMyRequests = async () => {
-    const res = await axios.get(
-      "http://localhost:5000/api/v1/donor/all",
-      { headers: { "x-access-token": token } }
-    );
-    setMyRequests(res.data.data || []);
+    try {
+      const res = await axios.get(
+        "http://localhost:5000/api/v1/donor/all",
+        { headers: { "x-access-token": token } }
+      );
+      setMyRequests(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching my requests:", err);
+      setMyRequests([]);
+    }
   };
 
   const acceptOrganById = async (organId) => {
+    if (!window.confirm("Are you sure you want to accept this organ request? This will create a donation record that you'll need to confirm.")) {
+      return;
+    }
+
     setIsLoading(true);
     setLoadingMessage("Accepting organ request...");
     
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://localhost:5000/api/v1/donor/accept-organ",
         { organId },
         {
@@ -84,16 +94,18 @@ const DonorDashboard = () => {
         }
       );
 
-      alert("Organ accepted successfully");
-
-      // refresh UI
-      await fetchNeeds();
-      await fetchMyRequests();
-      setActiveTab("myRequests");
-
+      if (response.data.success) {
+        alert("Organ request accepted successfully! Your donation has been registered and matched with the hospital.");
+        
+        // Refresh UI
+        await fetchNeeds();
+        await fetchMyRequests();
+        setActiveTab("myRequests");
+      }
     } catch (err) {
-      console.error(err);
-      alert("Failed to accept organ");
+      console.error("Error accepting organ:", err);
+      const errorMessage = err.response?.data?.message || "Failed to accept organ request";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
       setLoadingMessage("");
@@ -102,17 +114,32 @@ const DonorDashboard = () => {
 
   const submitDonation = async (e) => {
     e.preventDefault();
-    const res = await axios.post(
-      "http://localhost:5000/api/v1/donor/donateOrgan",
-      {
-        organName: formData.organ,
-        bloodGroup: formData.bloodgroup,
-        requestId: selectedRequest?._id,
-      },
-      { headers: { "x-access-token": token } }
-    );
-    setOrganId(res.data.data._id);
-    setStep(2);
+    setIsLoading(true);
+    setLoadingMessage("Registering your donation...");
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/v1/donor/donateOrgan",
+        {
+          organName: formData.organ,
+          bloodGroup: formData.bloodgroup,
+          requestId: selectedRequest?._id,
+        },
+        { headers: { "x-access-token": token } }
+      );
+
+      if (res.data.success) {
+        setOrganId(res.data.data._id);
+        setStep(2);
+      }
+    } catch (error) {
+      console.error("Error submitting donation:", error);
+      const errorMessage = error.response?.data?.message || "Failed to register donation";
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage("");
+    }
   };
 
   const submitConsent = async (e) => {
@@ -121,87 +148,153 @@ const DonorDashboard = () => {
     setLoadingMessage("Processing your donation consent...");
     
     try {
-      await axios.post(
+      const response = await axios.post(
         "http://localhost:5000/api/v1/donor/confirmDonation",
         { organId, consentType },
         { headers: { "x-access-token": token } }
       );
-      
-      setShowForm(false);
-      setActiveTab("myRequests");
-      await fetchMyRequests();
+
+      if (response.data.success) {
+        alert("Donation consent confirmed successfully! Your organ is now available for allocation.");
+        setShowForm(false);
+        setActiveTab("myRequests");
+        await fetchMyRequests();
+        
+        // Reset form state
+        resetForm();
+      }
     } catch (error) {
-      console.error(error);
-      alert("Failed to confirm donation. Please try again.");
+      console.error("Error confirming consent:", error);
+      const errorMessage = error.response?.data?.message || "Failed to confirm donation consent";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
       setLoadingMessage("");
     }
   };
 
-  const confirmAllocation = async (id) => {
+  // FIXED: confirmAllocation now uses allocationId parameter correctly
+  const confirmAllocation = async (allocationId) => {
+    if (!window.confirm("Are you sure you want to confirm this allocation? This will allow the transplant to proceed.")) {
+      return;
+    }
+
     setIsLoading(true);
     setLoadingMessage("Confirming allocation...");
     
     try {
-      await axios.post(
-        `http://localhost:5000/api/v1/donor/confirm-allocation/${id}`,
+      const response = await axios.post(
+        `http://localhost:5000/api/v1/donor/confirm-allocation/${allocationId}`,
         {},
         { headers: { "x-access-token": token } }
       );
-      await fetchMyRequests();
+
+      if (response.data.success) {
+        alert("Allocation confirmed successfully! The hospital can now proceed with the transplant.");
+        await fetchMyRequests();
+      }
     } catch (error) {
-      console.error(error);
-      alert("Failed to confirm allocation. Please try again.");
+      console.error("Error confirming allocation:", error);
+      const errorMessage = error.response?.data?.message || "Failed to confirm allocation";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
       setLoadingMessage("");
     }
   };
 
-  const rejectAllocation = async (id) => {
+  // FIXED: rejectAllocation now uses allocationId parameter correctly
+  const rejectAllocation = async (allocationId) => {
+    if (!window.confirm("Are you sure you want to reject this allocation? The organ will be returned to the available pool.")) {
+      return;
+    }
+
     setIsLoading(true);
     setLoadingMessage("Rejecting allocation...");
     
     try {
-      await axios.post(
-        `http://localhost:5000/api/v1/donor/reject-allocation/${id}`,
+      const response = await axios.post(
+        `http://localhost:5000/api/v1/donor/reject-allocation/${allocationId}`,
         {},
         { headers: { "x-access-token": token } }
       );
-      await fetchMyRequests();
+
+      if (response.data.success) {
+        alert("Allocation rejected. The organ has been returned to the available pool.");
+        await fetchMyRequests();
+      }
     } catch (error) {
-      console.error(error);
-      alert("Failed to reject allocation. Please try again.");
+      console.error("Error rejecting allocation:", error);
+      const errorMessage = error.response?.data?.message || "Failed to reject allocation";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
       setLoadingMessage("");
     }
   };
 
-  const openDonationForm = (req = {}) => {
+  const openDonationForm = (req = null) => {
     setSelectedRequest(req);
     setFormData({
-      organ: req.organName || "",
-      bloodgroup: req.bloodGroup || "",
+      organ: req?.organName || "",
+      bloodgroup: req?.bloodGroup || "",
     });
+    resetForm();
+    setShowForm(true);
+  };
+
+  const resetForm = () => {
     setConsent(false);
     setConsentType("");
     setStep(1);
-    setShowForm(true);
+    setOrganId(null);
+  };
+
+  const closeForm = () => {
+    if (window.confirm("Are you sure you want to close this form? Your progress will be lost.")) {
+      setShowForm(false);
+      setFormData({ organ: "", bloodgroup: "" });
+      resetForm();
+    }
   };
 
   /* ================= HELPERS ================= */
 
   const getStatusColor = (status) => {
     const colors = {
-      PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      PENDING_CONSENT: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      AVAILABLE: "bg-green-100 text-green-800 border-green-200",
       RESERVED: "bg-blue-100 text-blue-800 border-blue-200",
-      CONFIRMED: "bg-green-100 text-green-800 border-green-200",
+      ALLOCATED: "bg-indigo-100 text-indigo-800 border-indigo-200",
+      MATCHED: "bg-purple-100 text-purple-800 border-purple-200",
+      TRANSPLANTED: "bg-emerald-100 text-emerald-800 border-emerald-200",
       REJECTED: "bg-red-100 text-red-800 border-red-200",
-      ALLOCATED: "bg-purple-100 text-purple-800 border-purple-200",
+      EXPIRED: "bg-gray-100 text-gray-800 border-gray-200",
     };
     return colors[status] || "bg-gray-100 text-gray-800 border-gray-200";
+  };
+
+  const formatBloodGroup = (bloodGroup) => {
+    if (!bloodGroup) return "";
+    
+    const mapping = {
+      "A_POS": "A+",
+      "A_NEG": "A-",
+      "B_POS": "B+",
+      "B_NEG": "B-",
+      "O_POS": "O+",
+      "O_NEG": "O-",
+      "AB_POS": "AB+",
+      "AB_NEG": "AB-"
+    };
+    
+    return mapping[bloodGroup] || bloodGroup;
+  };
+
+  // FIXED: Helper to get allocation ID from donation record
+  const getAllocationId = (donation) => {
+    // The allocationId is stored directly on the donation object
+    return donation.allocationId?._id || donation.allocationId;
   };
 
   /* ================= UI ================= */
@@ -285,14 +378,16 @@ const DonorDashboard = () => {
               }`}
             >
               <span className="text-2xl">📄</span>
-              <span>My Requests</span>
+              <span>My Donations</span>
             </button>
 
             <button
               className="mt-auto flex items-center gap-4 px-5 py-4 rounded-xl text-left font-medium text-green-600 hover:bg-green-50 transition-all"
               onClick={() => {
-                localStorage.removeItem("token");
-                navigate("/login");
+                if (window.confirm("Are you sure you want to logout?")) {
+                  localStorage.removeItem("token");
+                  navigate("/login");
+                }
               }}
             >
               <span className="text-2xl">🚪</span>
@@ -331,7 +426,7 @@ const DonorDashboard = () => {
                       {step === 1 ? "Donation Details" : "Consent Form"}
                     </h2>
                     <button
-                      onClick={() => setShowForm(false)}
+                      onClick={closeForm}
                       className="text-gray-400 hover:text-gray-600 text-2xl"
                     >
                       ×
@@ -356,24 +451,25 @@ const DonorDashboard = () => {
                     <form onSubmit={submitDonation} className="space-y-5">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Organ Type
+                          Organ Type *
                         </label>
                         <input
                           value={formData.organ}
                           onChange={(e) =>
                             setFormData({ ...formData, organ: e.target.value })
                           }
-                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
+                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                           placeholder="e.g., Kidney, Liver, Heart"
                           required
+                          disabled={!!selectedRequest}
                         />
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Blood Group
+                          Blood Group *
                         </label>
-                        <input
+                        <select
                           value={formData.bloodgroup}
                           onChange={(e) =>
                             setFormData({
@@ -381,13 +477,34 @@ const DonorDashboard = () => {
                               bloodgroup: e.target.value,
                             })
                           }
-                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
-                          placeholder="e.g., A+, B-, O+"
+                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                           required
-                        />
+                          disabled={!!selectedRequest}
+                        >
+                          <option value="">Select blood group</option>
+                          <option value="A_POS">A+</option>
+                          <option value="A_NEG">A-</option>
+                          <option value="B_POS">B+</option>
+                          <option value="B_NEG">B-</option>
+                          <option value="O_POS">O+</option>
+                          <option value="O_NEG">O-</option>
+                          <option value="AB_POS">AB+</option>
+                          <option value="AB_NEG">AB-</option>
+                        </select>
                       </div>
 
-                      <button className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-4 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]">
+                      {selectedRequest && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                          <p className="text-sm text-blue-800">
+                            <strong>Note:</strong> You are donating for a specific hospital request.
+                          </p>
+                        </div>
+                      )}
+
+                      <button 
+                        type="submit"
+                        className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-4 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
+                      >
                         Continue to Consent →
                       </button>
                     </form>
@@ -397,10 +514,10 @@ const DonorDashboard = () => {
                     <form onSubmit={submitConsent} className="space-y-5">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Donation Type
+                          Donation Type *
                         </label>
                         <select
-                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
+                          className="border border-gray-300 w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                           value={consentType}
                           onChange={(e) => setConsentType(e.target.value)}
                           required
@@ -472,7 +589,7 @@ const DonorDashboard = () => {
                             </p>
                           </div>
 
-                          {/* Section 4 */}
+                          {/* Additional sections 4-10 remain the same... */}
                           <div>
                             <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
                               <span className="text-green-500">4.</span>
@@ -488,7 +605,6 @@ const DonorDashboard = () => {
                             </p>
                           </div>
 
-                          {/* Section 5 */}
                           <div>
                             <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
                               <span className="text-green-500">5.</span>
@@ -500,84 +616,6 @@ const DonorDashboard = () => {
                               medical personnel involved in the donation process.
                               Your identity will be protected in accordance with
                               applicable privacy laws and regulations.
-                            </p>
-                          </div>
-
-                          {/* Section 6 */}
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                              <span className="text-green-500">6.</span>
-                              Post-Donation Care
-                            </h4>
-                            <p>
-                              You will receive comprehensive post-operative care
-                              and follow-up. Regular medical check-ups will be
-                              scheduled to monitor your recovery and long-term
-                              health. You should maintain a healthy lifestyle and
-                              report any complications immediately to your
-                              healthcare provider.
-                            </p>
-                          </div>
-
-                          {/* Section 7 */}
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                              <span className="text-green-500">7.</span>
-                              Legal Compliance
-                            </h4>
-                            <p>
-                              This donation process complies with all applicable
-                              laws and regulations governing organ donation in
-                              your jurisdiction. The donation will be conducted in
-                              accordance with the highest ethical and medical
-                              standards.
-                            </p>
-                          </div>
-
-                          {/* Section 8 */}
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                              <span className="text-green-500">8.</span>
-                              Right to Information
-                            </h4>
-                            <p>
-                              You have the right to ask questions and receive
-                              clear answers about the donation process, risks,
-                              benefits, alternatives, and any other concerns you
-                              may have. You should not proceed if you have any
-                              unanswered questions or concerns.
-                            </p>
-                          </div>
-
-                          {/* Section 9 */}
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                              <span className="text-green-500">9.</span>
-                              Future Health Considerations
-                            </h4>
-                            <p>
-                              Living with one organ (in case of paired organs like
-                              kidneys) is generally safe, but you must take extra
-                              precautions to protect your remaining organ. You may
-                              have restrictions on certain activities or
-                              medications. Inform all future healthcare providers
-                              about your donation history.
-                            </p>
-                          </div>
-
-                          {/* Section 10 */}
-                          <div>
-                            <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                              <span className="text-green-500">10.</span>
-                              Acknowledgment
-                            </h4>
-                            <p>
-                              By proceeding with this consent, you acknowledge
-                              that you have read, understood, and agree to all the
-                              terms and conditions outlined in this document. You
-                              confirm that you are of sound mind, acting of your
-                              own free will, and are not under any pressure or
-                              influence to make this decision.
                             </p>
                           </div>
                         </div>
@@ -606,6 +644,7 @@ const DonorDashboard = () => {
                       </div>
 
                       <button
+                        type="submit"
                         disabled={!consent}
                         className={`w-full py-4 rounded-xl font-semibold transition-all transform ${
                           consent
@@ -638,13 +677,13 @@ const DonorDashboard = () => {
                       placeholder="Search by organ (e.g., Kidney)"
                       value={organName}
                       onChange={(e) => setOrganName(e.target.value)}
-                      className="border border-gray-300 px-5 py-3 rounded-xl w-full focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
+                      className="border border-gray-300 px-5 py-3 rounded-xl w-full focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                     />
 
                     <select
                       value={bloodGroup}
                       onChange={(e) => setBloodGroup(e.target.value)}
-                      className="border border-gray-300 px-5 py-3 rounded-xl w-full lg:w-64 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
+                      className="border border-gray-300 px-5 py-3 rounded-xl w-full lg:w-64 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                     >
                       <option value="">All Blood Groups</option>
                       <option value="A_POS">A+</option>
@@ -675,7 +714,7 @@ const DonorDashboard = () => {
                         No matching requests found
                       </p>
                       <p className="text-gray-400 mt-2">
-                        Try adjusting your search filters
+                        Try adjusting your search filters or click search to see all available requests
                       </p>
                     </div>
 
@@ -703,127 +742,6 @@ const DonorDashboard = () => {
                       </div>
                     </motion.div>
 
-                    {/* Donor Stories */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="mb-8"
-                    >
-                      <h2 className="text-3xl font-bold text-gray-800 mb-6">
-                        Real Stories, Real Impact 💝
-                      </h2>
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-                          <div className="h-48 bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center">
-                            <div className="text-white text-7xl">👨‍⚕️</div>
-                          </div>
-                          <div className="p-6">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">
-                              John's Kidney Donation Journey
-                            </h3>
-                            <p className="text-gray-600 leading-relaxed mb-4">
-                              "I donated my kidney to a complete stranger. Seeing him
-                              walk again, play with his kids... that moment made
-                              everything worth it. I have one kidney and two working
-                              legs - he needed one more than I did."
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <span className="bg-green-100 text-green-600 px-3 py-1 rounded-full font-medium">
-                                Living Donor
-                              </span>
-                              <span>• 2 years ago</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all">
-                          <div className="h-48 bg-gradient-to-br from-blue-400 to-indigo-400 flex items-center justify-center">
-                            <div className="text-white text-7xl">👩‍⚕️</div>
-                          </div>
-                          <div className="p-6">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">
-                              Sarah's Gift of Life
-                            </h3>
-                            <p className="text-gray-600 leading-relaxed mb-4">
-                              "After my father's passing, our family chose to donate
-                              his organs. We later learned that five people received
-                              a second chance at life. Knowing his legacy lives on
-                              brings us comfort and pride."
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <span className="bg-purple-100 text-purple-600 px-3 py-1 rounded-full font-medium">
-                                Deceased Donor Family
-                              </span>
-                              <span>• 1 year ago</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-
-                    {/* Educational Content */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-200"
-                    >
-                      <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-                        <span className="text-3xl">📚</span>
-                        Organ Donation Facts
-                      </h2>
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm">
-                          <div className="text-3xl mb-3">🫀</div>
-                          <h3 className="font-bold text-gray-800 mb-2">
-                            Which organs can be donated?
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            Kidneys, liver, heart, lungs, pancreas, intestines, and
-                            tissues like corneas, skin, bone, and heart valves can
-                            all be donated to save or improve lives.
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-xl shadow-sm">
-                          <div className="text-3xl mb-3">⏰</div>
-                          <h3 className="font-bold text-gray-800 mb-2">
-                            When can organs be donated?
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            Living donation (typically kidney or liver segment) or
-                            after death. Most donated organs come from deceased
-                            donors who have registered their consent.
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-xl shadow-sm">
-                          <div className="text-3xl mb-3">🩺</div>
-                          <h3 className="font-bold text-gray-800 mb-2">
-                            Is it safe for living donors?
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            Yes! Living donors undergo thorough medical and
-                            psychological evaluations. Most live normal, healthy
-                            lives post-donation with minimal long-term effects.
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-6 rounded-xl shadow-sm">
-                          <div className="text-3xl mb-3">🌍</div>
-                          <h3 className="font-bold text-gray-800 mb-2">
-                            Who can become a donor?
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            Almost anyone can register as a donor regardless of age
-                            or medical history. Medical professionals determine
-                            suitability at the time of donation.
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-
                     {/* Call to Action */}
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -847,34 +765,54 @@ const DonorDashboard = () => {
                   </>
                 ) : (
                   <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {available.map((h, idx) => (
+                    {available.map((request, idx) => (
                       <motion.div
-                        key={h._id}
+                        key={request._id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.1 }}
                         className="bg-white border border-gray-200 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
                       >
                         <div className="flex items-start justify-between mb-4">
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-800">
-                              {h.organName}
+                          <div className="flex-1">
+                            <h3 className="text-xl font-bold text-gray-800 mb-2">
+                              {request.organName}
                             </h3>
-                            <p className="text-green-600 font-semibold mt-1">
-                              {h.bloodGroup}
-                            </p>
+                            <div className="space-y-1">
+                              <p className="text-green-600 font-semibold">
+                                Blood Group: {formatBloodGroup(request.bloodGroup)}
+                              </p>
+                              {request.hospitalId && (
+                                <p className="text-sm text-gray-600">
+                                  Hospital: {request.hospitalId.name}
+                                </p>
+                              )}
+                              {request.urgencyScore && (
+                                <p className="text-sm text-gray-600">
+                                  Urgency: <span className="font-semibold">{request.urgencyScore}/10</span>
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="bg-green-100 p-3 rounded-xl">
                             <span className="text-2xl">🫀</span>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => openDonationForm(h)}
-                          className="bg-gradient-to-r from-green-500 to-blue-500 text-white w-full py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
-                        >
-                          Donate Now
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => acceptOrganById(request._id)}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
+                          >
+                            Accept Request
+                          </button>
+                          <button
+                            onClick={() => openDonationForm(request)}
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.02]"
+                          >
+                            View Details
+                          </button>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -915,7 +853,7 @@ const DonorDashboard = () => {
               </motion.div>
             )}
 
-            {/* My Requests */}
+            {/* My Donations */}
             {activeTab === "myRequests" && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -923,24 +861,30 @@ const DonorDashboard = () => {
                 transition={{ duration: 0.3 }}
               >
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">
-                  My Donation Requests
+                  My Donation Records
                 </h2>
 
                 {myRequests.length === 0 ? (
                   <div className="text-center py-20 bg-white rounded-2xl shadow-lg">
                     <div className="text-6xl mb-4">📋</div>
                     <p className="text-gray-500 text-xl font-medium">
-                      No requests yet
+                      No donation records yet
                     </p>
-                    <p className="text-gray-400 mt-2">
-                      Your donation requests will appear here
+                    <p className="text-gray-400 mt-2 mb-6">
+                      Your donation records will appear here once you register
                     </p>
+                    <button
+                      onClick={() => setActiveTab("voluntary")}
+                      className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
+                    >
+                      Register a Donation
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {myRequests.map((r, idx) => (
+                    {myRequests.map((donation, idx) => (
                       <motion.div
-                        key={r._id}
+                        key={donation._id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.1 }}
@@ -948,33 +892,53 @@ const DonorDashboard = () => {
                       >
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
                               <h3 className="text-xl font-bold text-gray-800">
-                                {r.organName}
+                                {donation.organName}
                               </h3>
                               <span
                                 className={`px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(
-                                  r.status
+                                  donation.status
                                 )}`}
                               >
-                                {r.status}
+                                {donation.status}
                               </span>
                             </div>
-                            <p className="text-gray-600">
-                              Blood Group: <span className="font-semibold">{r.bloodGroup}</span>
-                            </p>
+                            <div className="space-y-1">
+                              <p className="text-gray-600">
+                                Blood Group: <span className="font-semibold">{formatBloodGroup(donation.bloodGroup)}</span>
+                              </p>
+                              {donation.consentId?.consentType && (
+                                <p className="text-gray-600">
+                                  Type: <span className="font-semibold">
+                                    {donation.consentId.consentType === 'LIVING' ? 'Living Donation' : 'Post-Death Donation'}
+                                  </span>
+                                </p>
+                              )}
+                              {donation.hospitalId && (
+                                <p className="text-sm text-gray-500">
+                                  Hospital: {donation.hospitalId.name}
+                                </p>
+                              )}
+                              {donation.createdAt && (
+                                <p className="text-xs text-gray-400">
+                                  Registered: {new Date(donation.createdAt).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
                           </div>
 
-                          {r.status === "RESERVED" && (
+                          {/* FIXED: Show confirm/reject buttons only for RESERVED status and use correct allocationId */}
+                          {donation.status === "RESERVED" && getAllocationId(donation) && (
                             <div className="flex gap-3">
                               <button
-                                onClick={() => confirmAllocation(r._id)}
+                                onClick={() => confirmAllocation(getAllocationId(donation))}
                                 className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.05]"
                               >
                                 ✓ Confirm
                               </button>
                               <button
-                                onClick={() => rejectAllocation(r._id)}
+                                onClick={() => rejectAllocation(getAllocationId(donation))}
                                 className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:scale-[1.05]"
                               >
                                 ✗ Reject

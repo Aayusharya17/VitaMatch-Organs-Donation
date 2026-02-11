@@ -69,7 +69,6 @@ const seedUsers = async () => {
       const last = getRandom(lastNames);
       const city = getRandom(cities);
 
-      // ✅ Convert city → coordinates
       const coordinates = await getCoordinates(city);
 
       await User.create({
