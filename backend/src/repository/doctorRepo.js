@@ -96,42 +96,49 @@ class DoctorRepository {
     }
   }
 
-  async getDoctorAllocations(doctorId, statusFilter) {
-    try {
-      // Get all requests created by doctor
-      const doctorRequests = await RequestedOrgan.find({ doctorId }).select("_id");
-      const requestIds = doctorRequests.map(r => r._id);
-
-      // If doctor has no requests
-      if (!requestIds.length) return [];
-
-      // Base query
-      const query = {
-        requestId: { $in: requestIds }
-      };
-
-      // Optional filtering
-      if (statusFilter) {
-        if (statusFilter === "ALL_ACTIVE") {
-          query.status = {
-            $in: ["PENDING_CONFIRMATION", "MATCHED"]
-          };
-        } else if (statusFilter !== "ALL") {
-          query.status = statusFilter;
-        }
-      }
-
-      // Fetch allocations
-      return await Allocation.find(query)
-        .sort({ createdAt: -1 })
-        .populate("organId", "organName bloodGroup status donorId")
-        .populate("requestId", "organName urgencyScore status")
-        .populate("hospitalId", "name address");
-    } catch (error) {
-      console.error("Repository error getting allocations:", error);
-      throw error;
+async getDoctorAllocations(doctorId, statusFilter) {
+  try {
+    // Get doctor's hospital
+    const doctor = await User.findById(doctorId).select("hospitalId");
+    if (!doctor || !doctor.hospitalId) {
+      return [];
     }
+
+    // Base query: all allocations for this hospital
+    const query = {
+      hospitalId: doctor.hospitalId
+    };
+
+    // Optional status filtering
+    if (statusFilter) {
+      if (statusFilter === "ALL_ACTIVE") {
+        query.status = {
+          $in: ["PENDING_CONFIRMATION", "MATCHED"]
+        };
+      } else if (statusFilter !== "ALL") {
+        query.status = statusFilter;
+      }
+    }
+
+    // Fetch allocations for the hospital
+    return await Allocation.find(query)
+      .sort({ createdAt: -1 })
+      .populate("organId", "organName bloodGroup status donorId")
+      .populate({
+        path: "requestId",
+        select: "organName bloodGroup urgencyScore status doctorId",
+        populate: {
+          path: "doctorId",
+          select: "name email phoneNumber"
+        }
+      })
+      .populate("hospitalId", "name address phoneNumber");
+      
+  } catch (error) {
+    console.error("Repository error getting allocations:", error);
+    throw error;
   }
+}
 
   async viewRequest(requestId) {
     try {

@@ -89,92 +89,103 @@ class DoctorService {
   }
 
   async acceptOrgan({ organId, requestId, user }) {
-    try {
-      const organ = await DonatedOrgan.findById(organId).populate("consentId");
+  try {
+    const organ = await DonatedOrgan
+      .findById(organId)
+      .populate("consentId");
 
-      if (!organ) throw new Error("Organ not found");
-      
-      if (organ.status !== "AVAILABLE") {
-        throw new Error("Organ is not available for allocation");
-      }
+    if (!organ) throw new Error("Organ not found");
 
-      if (!organ.consentId || organ.consentId.status !== "VERIFIED") {
-        throw new Error("Organ consent not verified");
-      }
-
-      let request;
-      let hospitalId;
-
-      // Check if requestId is provided and valid
-      if (requestId) {
-        request = await RequestedOrgan.findById(requestId);
-        if (!request) {
-          throw new Error("Request not found");
-        }
-        hospitalId = request.hospitalId;
-      } else {
-        // No specific request - use doctor's hospital
-        if (!user.hospitalId) {
-          throw new Error("Doctor must be associated with a hospital");
-        }
-        hospitalId = user.hospitalId;
-      }
-
-      // Create allocation
-      const allocation = await Allocation.create({
-        organId,
-        requestId: requestId || null,
-        hospitalId,
-        matchScore: 100,
-        status: "PENDING_CONFIRMATION"
-      });
-
-      // FIXED: Add blockchain recording for initial allocation
-      const timestamp = Date.now();
-      const hash = this.blockchainService.generateHash({
-        allocationId: allocation._id.toString(),
-        status: "PENDING_CONFIRMATION",
-        previousHash: null,
-        timestamp
-      });
-
-      const txHash = await this.blockchainService.storeHash(hash);
-
-      allocation.lastBlockchainHash = hash;
-      allocation.blockchainHistory.push({
-        status: "PENDING_CONFIRMATION",
-        hash,
-        txHash,
-        timestamp: new Date(timestamp)
-      });
-
-      await allocation.save();
-
-      // Update organ
-      organ.allocationId = allocation._id;
-      organ.status = "RESERVED";
-      await organ.save();
-
-      // Update request if it exists
-      if (request) {
-        request.status = "PENDING_CONFIRMATION";
-        request.allocationId = allocation._id;
-        await request.save();
-      }
-
-      // Notify donor
-      await Notification.create({
-        userId: organ.donorId,
-        message: "A hospital has requested your donated organ. Please confirm or reject the allocation.",
-        allocationId: allocation._id
-      });
-
-      return allocation;
-    } catch (error) {
-      console.error("Service error accepting organ:", error);
-      throw error;
+    if (organ.status !== "AVAILABLE") {
+      throw new Error("Organ is not available for allocation");
     }
+
+    if (!organ.consentId || organ.consentId.status !== "VERIFIED") {
+      throw new Error("Organ consent not verified");
+    }
+
+    const doctor = await User.findById(user.id);
+
+    if (!doctor) {
+      throw new Error("Doctor not found");
+    }
+
+    if (!doctor.hospitalId) {
+      throw new Error("Doctor must be associated with a hospital");
+    }
+
+    let request;
+    let hospitalId;
+
+    // If request exists → use request hospital
+    if (requestId) {
+      request = await RequestedOrgan.findById(requestId);
+      if (!request) {
+        throw new Error("Request not found");
+      }
+
+      hospitalId = request.hospitalId;
+    } else {
+      // otherwise use doctor's hospital
+      hospitalId = doctor.hospitalId;
+    }
+
+    const allocation = await Allocation.create({
+      organId,
+      requestId: requestId || null,
+      hospitalId,
+      matchScore: 100,
+      status: "PENDING_CONFIRMATION"
+    });
+
+    // Blockchain
+    const timestamp = Date.now();
+    const hash = this.blockchainService.generateHash({
+      allocationId: allocation._id.toString(),
+      status: "PENDING_CONFIRMATION",
+      previousHash: null,
+      timestamp
+    });
+
+    const txHash = await this.blockchainService.storeHash(hash);
+
+    allocation.lastBlockchainHash = hash;
+    allocation.blockchainHistory.push({
+      status: "PENDING_CONFIRMATION",
+      hash,
+      txHash,
+      timestamp: new Date(timestamp)
+    });
+
+    await allocation.save();
+
+    // Update organ
+    organ.allocationId = allocation._id;
+    organ.status = "RESERVED";
+    await organ.save();
+
+    // Update request
+    if (request) {
+      request.status = "PENDING_CONFIRMATION";
+      request.allocationId = allocation._id;
+      await request.save();
+    }
+
+    // Notify donor
+    await Notification.create({
+      userId: organ.donorId,
+      message:
+        "A hospital has requested your donated organ. Please confirm or reject the allocation.",
+      allocationId: allocation._id
+    });
+
+    return allocation;
+
+  } catch (error) {
+    console.error("Service error accepting organ:", error);
+    throw error;
   }
+}
 
   async getDoctorAllocations(doctorId, status) {
     try {

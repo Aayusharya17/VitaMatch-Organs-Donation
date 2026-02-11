@@ -62,17 +62,16 @@ const DoctorDashboard = () => {
     }
   };
 
-  const fetchAllocations = async () => {
-    try {
-      const res = await api.get(`/doctor/allocations?status=ALL_ACTIVE`, authHeader);
-      if (res.data.success) {
-        setAllocations(res.data.data);
-      }
-    } catch (err) {
-      console.error("Error fetching allocations:", err);
+const fetchAllocations = async () => {
+  try {
+    const res = await api.get(`/doctor/allocations`, authHeader);
+    if (res.data.success) {
+      setAllocations(res.data.data);
     }
-  };
-
+  } catch (err) {
+    console.error("Error fetching allocations:", err);
+  }
+};
   const findAvailable = async () => {
     if (!organName || !bloodGroup) {
       alert("Please select both organ type and blood group");
